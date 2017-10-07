@@ -5,7 +5,7 @@
 # Replace these targets with your target (hex file) name, including the .hex part.
 
 TARGETS = \
-	ex84.hex 
+	asgn2.hex 
 
 # Set the name of the folder containing libcab202_teensy.a
 
