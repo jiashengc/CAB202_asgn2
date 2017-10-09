@@ -12,7 +12,9 @@
 #include "lcd_model.h"
 #include <avr/interrupt.h>
 
-int level = 0;
+uint8_t level = 0;
+uint8_t hero_speed = 2;
+char last_direction;
 
 // Initialise sprites
 sprite_id hero;
@@ -118,12 +120,12 @@ void setup() {
 	lcd_init(contrast);
 
 	// Initialise sprites
-	hero = sprite_create(40, 40, 7, 10, hero_bitmap);
+	hero = sprite_create(40, 30, 7, 10, hero_bitmap);
 	tower = sprite_create(6, 1, 72, 16, tower_bitmap);
-	door = sprite_create(30, 7, 24, 10, door_bitmap);
+	door = sprite_create(30, 7, 24, 12, door_bitmap);
 	mob = sprite_create(72, 20, 5, 6, mob_bitmap);
 	key = sprite_create(6, 20, 7, 3, key_bitmap);
-	sprite_set_speed(hero, 2, 2);
+	sprite_set_speed(hero, hero_speed, hero_speed);
 	sprite_set_speed(mob, 1, 1);
 
 	show_screen();
@@ -169,6 +171,60 @@ void sprite_set_speed(sprite_id sprite, float dx, float dy) {
 	sprite->dx = dx;
 	sprite->dy = dy;
 	return;
+}
+
+void sprite_move_all(sprite_id sprite, char direction) {
+	last_direction = direction;
+	switch(direction) {
+		case 'L':
+			sprite->x += hero_speed;
+			break;
+		case 'R':
+			sprite->x -= hero_speed;
+			break;
+		case 'U':
+			sprite->y += hero_speed;
+			break;
+		case 'D':
+			sprite->y -= hero_speed;
+			break;
+	}
+	return;
+}
+
+void move_all(char direction) {
+	sprite_move_all(tower, direction);
+	sprite_move_all(mob, direction);
+	sprite_move_all(key, direction);
+	sprite_move_all(door, direction);	
+}
+
+int sprite_back(sprite_id sprite) {
+	int x0 = round( sprite->x );
+	int y0 = round( sprite->y );
+	sprite->x -= sprite->dx;
+	sprite->y -= sprite->dy;
+	int x1 = round( sprite->x );
+	int y1 = round( sprite->y );
+	return ( x1 != x0 ) || ( y1 != y0 );
+}
+
+void sprite_back_all() {
+	char direction = ' ';
+	if (last_direction == 'L') {
+		direction = 'R';
+	}
+	else if (last_direction == 'R') {
+		direction = 'L';
+	}
+	else if (last_direction == 'U') {
+		direction = 'D';
+	} 
+	else if (last_direction == 'D') {
+		direction = 'U';
+	}
+	
+	move_all(direction);
 }
 
 void sprite_move(sprite_id sprite, char direction) {
@@ -261,6 +317,11 @@ void mob_move(sprite_id hero, sprite_id mob) {
 	}
 }
 
+void sprite_follow(sprite_id sprite_1, sprite_id sprite_2) {
+	sprite_1->x = sprite_2->x - (sprite_2->width / 2) - 1;
+	sprite_1->y = sprite_2->y + (sprite_2->height / 2);
+}
+
 uint8_t sprite_width( sprite_id sprite ) {
 	return sprite->width;
 }
@@ -269,21 +330,12 @@ uint8_t sprite_height( sprite_id sprite ) {
 	return sprite->height;
 }
 
-int sprite_back(sprite_id sprite) {
-	int x0 = round( sprite->x );
-	int y0 = round( sprite->y );
-	sprite->x -= sprite->dx;
-	sprite->y -= sprite->dy;
-	int x1 = round( sprite->x );
-	int y1 = round( sprite->y );
-	return ( x1 != x0 ) || ( y1 != y0 );
-}
-
 void sprite_destroy( sprite_id sprite ) {
 	free(sprite);
 }
 
 int process_collision(sprite_id obj_1, sprite_id obj_2) {
+
 	// Get platform and bird screen locations.
 	uint8_t hx = round(sprite_x(obj_1)), hy = round(sprite_y(obj_1));
 	uint8_t ox = round(sprite_x(obj_2)), oy = round(sprite_y(obj_2));
@@ -296,17 +348,12 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 	if ( ox >= hx + sprite_width(obj_1)) collided = 0;
 	if ( oy >= hy + sprite_height(obj_1)) collided = 0;
 
-	if (!collided) {
+	if (!collided || obj_2 == key) {
 		return collided;
 	}
 
 	if (obj_1 == hero) {
-		sprite_back(hero);
-
-		if (obj_2 == mob) {
-			sprite_visible(hero, 0);
-		}
-
+		sprite_back_all();
 	} else {
 		sprite_move_to(hero, sprite_x(hero), sprite_y(obj_2) + sprite_height(obj_2));
 	}
@@ -314,9 +361,29 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
   return collided;
 }
 
+
 /**
  * DRIVERS 
  */
+
+void next_level() {
+	clear_screen();
+	level += 1;
+	if (tower != NULL) {
+		sprite_destroy(tower);
+	}
+	if (treasure != NULL) {
+		sprite_destroy(treasure);
+	}
+	sprite_destroy(hero);
+	sprite_destroy(mob);
+	sprite_destroy(key);
+
+	hero = sprite_create(40, 30, 7, 10, hero_bitmap);
+	sprite_set_speed(hero, 2, 2);
+	// sprite_set_speed(mob, 1, 1);
+	
+}
 
 void process() {
 	clear_screen();
@@ -337,37 +404,52 @@ void process() {
 	// Player movements
 	// LEFT
 	if (BIT_IS_SET(PINB, 1)) {
-		sprite_move(hero, 'L');
+		last_direction = 'L';
+		move_all('L');
 	}
 	else if (BIT_IS_SET(PINB, 7)) {
-		sprite_move(hero, 'D');
+		last_direction = 'D';
+		move_all('D');
 	}
 	else if (BIT_IS_SET(PIND, 0)) {
-		sprite_move(hero, 'R');
+		last_direction = 'R';
+		move_all('R');
 	}
 	else if (BIT_IS_SET(PIND, 1)) {
-		sprite_move(hero, 'U');
+		last_direction = 'U';
+		move_all('U');
 	}
 
-	sprite_draw(hero);
-
 	if (level == 1) {
+		sprite_draw(hero);
 		sprite_draw(tower);
 		sprite_draw(door);
 		sprite_draw(mob);
 		sprite_draw(key);
-		mob_move(hero, mob);
+		// mob_move(hero, mob);
+
+		process_collision(hero, tower);
+		process_collision(mob, tower);
 
 		if (process_collision(hero, mob)) {
+			// sprite_visible(hero, 0);
 			sprite_destroy(hero);
 		}
 
 		if(process_collision(hero, key)) {
-			sprite_destroy(key);
+			sprite_follow(key, hero);
+
+			if (process_collision(hero, door)) {
+				next_level();
+			}
 		}
+		
 	}
 	
-	
+	if (level > 1) {
+		sprite_draw(hero);
+	}
+
 	show_screen();
 }
 
