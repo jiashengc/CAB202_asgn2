@@ -6,8 +6,29 @@
 #include <graphics.h>
 #include <lcd.h>
 #include <macros.h>
+#include "sprite.h"
 #include "lcd_model.h"
 #include <avr/interrupt.h>
+
+int ready = 0;
+int level_one = 0;
+
+// Initialise sprites
+sprite_id hero;
+
+// Sprite vectors
+uint8_t hero_bitmap[20] = {
+	0b00000010, 0b10000000,
+	0b00000011, 0b10000000, 
+	0b00000010, 0b10000000,
+	0b00000011, 0b10000000,
+	0b00000000, 0b00000000, 
+	0b00001111, 0b11100000,
+	0b00001010, 0b10100000, 
+	0b00000011, 0b10000000,
+	0b00000010, 0b10000000, 
+	0b00000010, 0b10000000
+};
 
 void setup() {
 
@@ -31,7 +52,10 @@ void setup() {
 	
 	// Initialise buttons
 	CLEAR_BIT(DDRF, 5); // SW2 LEFT BUTTON
-    CLEAR_BIT(DDRF, 6); // SW1
+    CLEAR_BIT(DDRF, 6); // SW1 ?
+
+	// Initialise sprites
+	sprite_init(hero, 1, 2, 16, 10, hero_bitmap);
 
 	draw_string(14, 23, "n9901990", FG_COLOUR);
 
@@ -70,14 +94,20 @@ void draw_int(uint8_t x, uint8_t y, int value, colour_t colour) {
 
 void process() {
 
-	if (BIT_IS_SET(PINF, 6)) {
+	if (BIT_IS_SET(PINF, 6) && !ready) {
 		lcd_clear();
+		ready = 1;
+		sprite_draw(hero);
+		return;
+	}
 
-		double time = elapsed_time();
-		draw_string(0, 0, "Time = ", FG_COLOUR);
-		draw_string(10, 10, "           ", FG_COLOUR);
-		draw_double(10, 10, time, FG_COLOUR);
-		show_screen();
+	if (ready && !level_one) {
+		// Do counter here
+		level_one = 1;
+	}
+
+	if (level_one) {
+		sprite_draw(hero);
 	}
 	
 }
