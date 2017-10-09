@@ -15,12 +15,12 @@
 int level = 0;
 
 // Initialise sprites
-Sprite hero;
-Sprite tower;
-Sprite door;
-Sprite mob;
-Sprite key;
-Sprite treasure;
+sprite_id hero;
+sprite_id tower;
+sprite_id door;
+sprite_id mob;
+sprite_id key;
+sprite_id treasure;
 
 // Sprite vectors
 uint8_t hero_bitmap[] = {
@@ -84,6 +84,7 @@ uint8_t key_bitmap[] = {
 };
 
 void sprite_set_speed(sprite_id sprite, float dx, float dy);
+sprite_id sprite_create(float x, float y, uint8_t width, uint8_t height, uint8_t bitmap[]);
 
 void setup() {
 	uint8_t contrast = 175;
@@ -117,13 +118,13 @@ void setup() {
 	lcd_init(contrast);
 
 	// Initialise sprites
-	sprite_init(&hero, 40, 40, 7, 10, hero_bitmap);
-	sprite_init(&tower, 6, 1, 72, 16, tower_bitmap);
-	sprite_init(&door, 30, 7, 24, 10, door_bitmap);
-	sprite_init(&mob, 72, 20, 5, 6, mob_bitmap);
-	sprite_init(&key, 6, 20, 7, 3, key_bitmap);
-	sprite_set_speed(&hero, 2, 2);
-	sprite_set_speed(&mob, 1, 1);
+	hero = sprite_create(40, 40, 7, 10, hero_bitmap);
+	tower = sprite_create(6, 1, 72, 16, tower_bitmap);
+	door = sprite_create(30, 7, 24, 10, door_bitmap);
+	mob = sprite_create(72, 20, 5, 6, mob_bitmap);
+	key = sprite_create(6, 20, 7, 3, key_bitmap);
+	sprite_set_speed(hero, 2, 2);
+	sprite_set_speed(mob, 1, 1);
 
 	show_screen();
 }
@@ -154,6 +155,16 @@ void draw_int(uint8_t x, uint8_t y, int value, colour_t colour) {
 	draw_string(x, y, buffer, colour);
 }
 
+sprite_id sprite_create(float x, float y, uint8_t width, uint8_t height, uint8_t bitmap[]) {
+	sprite_id sprite = malloc( sizeof( Sprite ) );
+
+	if ( sprite != NULL ) {
+		sprite_init( sprite, x, y, width, height, bitmap );
+	}
+
+	return sprite;
+}
+
 void sprite_set_speed(sprite_id sprite, float dx, float dy) {
 	sprite->dx = dx;
 	sprite->dy = dy;
@@ -163,19 +174,50 @@ void sprite_set_speed(sprite_id sprite, float dx, float dy) {
 void sprite_move(sprite_id sprite, char direction) {
 	switch(direction) {
 		case 'L':
-			sprite->x += -(sprite->dx);
+			if (sprite->dx > 0) {
+				sprite->dx = -sprite->dx;
+			}
+			sprite->x += sprite->dx;
 			break;
 		case 'R':
+			if (sprite->dx < 0) {
+				sprite->dx = -sprite->dx;
+			}
 			sprite->x += sprite->dx;
 			break;
 		case 'U':
-			sprite->y += -(sprite->dy);
+			if (sprite->dy > 0) {
+				sprite->dy = -sprite->dy;
+			} 
+			sprite->y += sprite->dy;
 			break;
 		case 'D':
+			if (sprite->dy < 0) {
+				sprite->dy = -sprite->dy;
+			}
 			sprite->y += sprite->dy;
 			break;
 	}
 	return;
+}
+
+void sprite_visible( sprite_id sprite, uint8_t visible) {
+	sprite->is_visible = visible;
+	return;
+}
+
+int sprite_is_visible(sprite_id sprite) {
+	return sprite->is_visible;
+}
+
+int sprite_move_to( sprite_id sprite, double x, double y ) {
+	int x0 = round( sprite->x );
+	int y0 = round( sprite->y );
+	sprite->x = x;
+	sprite->y = y;
+	int x1 = round( sprite->x );
+	int y1 = round( sprite->y );
+	return ( x1 != x0 ) || ( y1 != y0 );
 }
 
 float sprite_x( sprite_id sprite ) {
@@ -186,7 +228,19 @@ float sprite_y( sprite_id sprite ) {
 	return sprite->y;
 }
 
+float sprite_dx (sprite_id sprite) {
+	return sprite->dx;
+}
+
+float sprite_dy(sprite_id sprite) {
+	return sprite->dy;
+}
+
 void mob_move(sprite_id hero, sprite_id mob) {
+	if (!sprite_is_visible(hero)) {
+		return;
+	}
+
 	int hx = sprite_x(hero);
 	int hy = sprite_y(hero);
 	int mx = sprite_x(mob);
@@ -215,10 +269,18 @@ uint8_t sprite_height( sprite_id sprite ) {
 	return sprite->height;
 }
 
+int sprite_back(sprite_id sprite) {
+	int x0 = round( sprite->x );
+	int y0 = round( sprite->y );
+	sprite->x -= sprite->dx;
+	sprite->y -= sprite->dy;
+	int x1 = round( sprite->x );
+	int y1 = round( sprite->y );
+	return ( x1 != x0 ) || ( y1 != y0 );
+}
+
 void sprite_destroy( sprite_id sprite ) {
-	if ( sprite != NULL ) {
-		free( sprite );
-	}
+	free(sprite);
 }
 
 int process_collision(sprite_id obj_1, sprite_id obj_2) {
@@ -234,33 +296,20 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 	if ( ox >= hx + sprite_width(obj_1)) collided = 0;
 	if ( oy >= hy + sprite_height(obj_1)) collided = 0;
 
-	// if ( collided ) {
-	// 	if (obj_1 == hero) {
-	// 		double dx = sprite_dx(hero), dy = sprite_dy(hero);
+	if (!collided) {
+		return collided;
+	}
 
-	// 		if ( hy == oy + sprite_height(hero) - 1 && dy < 0 ) {
-	// 		    dy = -dy;
-	// 		}
+	if (obj_1 == hero) {
+		sprite_back(hero);
 
-	// 		else if ( hx + sprite_width(hero) - 1 == ox && dx > 0 ) {
-	// 		    dx = 0;
-	// 		}
+		if (obj_2 == mob) {
+			sprite_visible(hero, 0);
+		}
 
-	// 		else if ( hx == ox + sprite_width(obj_2) - 1 && dx < 0 ) {
-	// 		    dx = 0;
-	// 		}
-
-	// 		else {
-	// 		    dy = 0;
-    //             on_platform = 1;
-	// 		}
-
-	// 		sprite_back(hero);
-	// 		sprite_turn_to(hero, dx, dy);
-	// 	} else {
-	// 		sprite_move_to(hero, sprite_x(hero), sprite_y(obj_2) + sprite_height(obj_2));
-	// 	}
-	// }
+	} else {
+		sprite_move_to(hero, sprite_x(hero), sprite_y(obj_2) + sprite_height(obj_2));
+	}
 
   return collided;
 }
@@ -288,26 +337,34 @@ void process() {
 	// Player movements
 	// LEFT
 	if (BIT_IS_SET(PINB, 1)) {
-		sprite_move(&hero, 'L');
+		sprite_move(hero, 'L');
 	}
 	else if (BIT_IS_SET(PINB, 7)) {
-		sprite_move(&hero, 'D');
+		sprite_move(hero, 'D');
 	}
 	else if (BIT_IS_SET(PIND, 0)) {
-		sprite_move(&hero, 'R');
+		sprite_move(hero, 'R');
 	}
 	else if (BIT_IS_SET(PIND, 1)) {
-		sprite_move(&hero, 'U');
+		sprite_move(hero, 'U');
 	}
 
-	sprite_draw(&hero);
+	sprite_draw(hero);
 
 	if (level == 1) {
-		sprite_draw(&tower);
-		sprite_draw(&door);
-		sprite_draw(&mob);
-		sprite_draw(&key);
-		mob_move(&hero, &mob);
+		sprite_draw(tower);
+		sprite_draw(door);
+		sprite_draw(mob);
+		sprite_draw(key);
+		mob_move(hero, mob);
+
+		if (process_collision(hero, mob)) {
+			sprite_destroy(hero);
+		}
+
+		if(process_collision(hero, key)) {
+			sprite_destroy(key);
+		}
 	}
 	
 	
