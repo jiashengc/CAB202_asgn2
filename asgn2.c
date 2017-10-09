@@ -10,27 +10,27 @@
 #include "lcd_model.h"
 #include <avr/interrupt.h>
 
-int ready = 0;
-int level_one = 0;
+int level = 0;
 
 // Initialise sprites
-sprite_id hero;
+Sprite hero;
 
 // Sprite vectors
-uint8_t hero_bitmap[20] = {
-	0b00000010, 0b10000000,
-	0b00000011, 0b10000000, 
-	0b00000010, 0b10000000,
-	0b00000011, 0b10000000,
-	0b00000000, 0b00000000, 
-	0b00001111, 0b11100000,
-	0b00001010, 0b10100000, 
-	0b00000011, 0b10000000,
-	0b00000010, 0b10000000, 
-	0b00000010, 0b10000000
+uint8_t hero_bitmap[] = {
+	0b00101000,
+	0b00111000,
+	0b00101000,
+	0b11111110,
+	0b10101010,
+	0b00111000,
+	0b00101000,
+	0b00101000
 };
 
+void sprite_set_speed(sprite_id sprite, float dx, float dy);
+
 void setup() {
+	uint8_t contrast = 175;
 
 	// Initialise essentials
 	set_clock_speed(CPU_8MHz);
@@ -54,10 +54,17 @@ void setup() {
 	CLEAR_BIT(DDRF, 5); // SW2 LEFT BUTTON
     CLEAR_BIT(DDRF, 6); // SW1 ?
 
-	// Initialise sprites
-	sprite_init(hero, 1, 2, 16, 10, hero_bitmap);
+	// Initialise backlight
+	SET_BIT(DDRC, 7);
 
-	draw_string(14, 23, "n9901990", FG_COLOUR);
+	// Initialise contrast
+	lcd_init(contrast);
+
+	// Initialise sprites
+	sprite_init(&hero, 20, 20, 7, 8, hero_bitmap);
+	sprite_set_speed(&hero, 2, 2);
+	hero.dx = 1;
+	hero.dy = 1;
 
 	show_screen();
 }
@@ -88,28 +95,75 @@ void draw_int(uint8_t x, uint8_t y, int value, colour_t colour) {
 	draw_string(x, y, buffer, colour);
 }
 
+void sprite_set_speed(sprite_id sprite, float dx, float dy) {
+	sprite->dx = dx;
+	sprite->dy = dy;
+	return;
+}
+
+void sprite_move(sprite_id sprite, char direction) {
+
+
+	switch(direction) {
+		case 'L':
+			sprite->x += -(sprite->dx);
+			break;
+		case 'R':
+			sprite->x += sprite->dx;
+			break;
+		case 'U':
+			sprite->y += -(sprite->dy);
+			break;
+		case 'D':
+			sprite->y += sprite->dy;
+			break;
+	}
+	return;
+}
+
 /**
  * DRIVERS 
  */
 
 void process() {
+	clear_screen();
 
-	if (BIT_IS_SET(PINF, 6) && !ready) {
-		lcd_clear();
-		ready = 1;
-		sprite_draw(hero);
+	// GUARD: Check if the start button has been pressed when level is 0
+	if (BIT_IS_SET(PINF, 5) && level == 0) {
+		level = 1;
 		return;
 	}
 
-	if (ready && !level_one) {
-		// Do counter here
-		level_one = 1;
+	// GUARD: Check if the level is still at 0
+	if (level == 0) {
+		draw_string(14, 23, "n9901990", FG_COLOUR);
+		show_screen();
+		return;
 	}
 
-	if (level_one) {
-		sprite_draw(hero);
+	// Player movements
+	// LEFT
+	if (BIT_IS_SET(PINB, 1)) {
+		sprite_move(&hero, 'L');
+	}
+	else if (BIT_IS_SET(PINB, 7)) {
+		sprite_move(&hero, 'D');
+	}
+	else if (BIT_IS_SET(PIND, 0)) {
+		sprite_move(&hero, 'R');
+	}
+	else if (BIT_IS_SET(PIND, 1)) {
+		sprite_move(&hero, 'U');
+	}
+
+	sprite_draw(&hero);
+
+	if (level == 1) {
+		
 	}
 	
+	
+	show_screen();
 }
 
 int main(void) {
