@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <avr/io.h>
+#include <math.h>
 #include <util/delay.h>
 #include <cpu_speed.h>
 #include <graphics.h>
@@ -17,6 +19,8 @@ Sprite hero;
 Sprite tower;
 Sprite door;
 Sprite mob;
+Sprite key;
+Sprite treasure;
 
 // Sprite vectors
 uint8_t hero_bitmap[] = {
@@ -73,6 +77,12 @@ uint8_t mob_bitmap[] = {
 	0b10101000,
 };
 
+uint8_t key_bitmap[] = {
+	0b11100000,
+	0b10111110,
+	0b11101010,
+};
+
 void sprite_set_speed(sprite_id sprite, float dx, float dy);
 
 void setup() {
@@ -107,11 +117,13 @@ void setup() {
 	lcd_init(contrast);
 
 	// Initialise sprites
-	sprite_init(&hero, 20, 20, 7, 10, hero_bitmap);
+	sprite_init(&hero, 40, 40, 7, 10, hero_bitmap);
 	sprite_init(&tower, 6, 1, 72, 16, tower_bitmap);
 	sprite_init(&door, 30, 7, 24, 10, door_bitmap);
 	sprite_init(&mob, 72, 20, 5, 6, mob_bitmap);
-	sprite_set_speed(&hero, 1.5, 1.5);
+	sprite_init(&key, 6, 20, 7, 3, key_bitmap);
+	sprite_set_speed(&hero, 2, 2);
+	sprite_set_speed(&mob, 1, 1);
 
 	show_screen();
 }
@@ -149,8 +161,6 @@ void sprite_set_speed(sprite_id sprite, float dx, float dy) {
 }
 
 void sprite_move(sprite_id sprite, char direction) {
-
-
 	switch(direction) {
 		case 'L':
 			sprite->x += -(sprite->dx);
@@ -166,6 +176,93 @@ void sprite_move(sprite_id sprite, char direction) {
 			break;
 	}
 	return;
+}
+
+float sprite_x( sprite_id sprite ) {
+	return sprite->x;
+}
+
+float sprite_y( sprite_id sprite ) {
+	return sprite->y;
+}
+
+void mob_move(sprite_id hero, sprite_id mob) {
+	int hx = sprite_x(hero);
+	int hy = sprite_y(hero);
+	int mx = sprite_x(mob);
+	int my = sprite_y(mob);
+
+	// If the mob is to the right of the hero
+	if (hx < mx) {
+		sprite_move(mob, 'L');
+	} else {
+		sprite_move(mob, 'R');
+	}
+
+	// If the mob is below the hero
+	if (hy < my) {
+		sprite_move(mob, 'U');
+	} else {
+		sprite_move(mob, 'D');
+	}
+}
+
+uint8_t sprite_width( sprite_id sprite ) {
+	return sprite->width;
+}
+
+uint8_t sprite_height( sprite_id sprite ) {
+	return sprite->height;
+}
+
+void sprite_destroy( sprite_id sprite ) {
+	if ( sprite != NULL ) {
+		free( sprite );
+	}
+}
+
+int process_collision(sprite_id obj_1, sprite_id obj_2) {
+	// Get platform and bird screen locations.
+	uint8_t hx = round(sprite_x(obj_1)), hy = round(sprite_y(obj_1));
+	uint8_t ox = round(sprite_x(obj_2)), oy = round(sprite_y(obj_2));
+
+	// Check for collision
+	int collided = 1;
+
+	if ( hx >= ox + sprite_width(obj_2)) collided = 0;
+	if ( hy >= oy + sprite_height(obj_2)) collided = 0;
+	if ( ox >= hx + sprite_width(obj_1)) collided = 0;
+	if ( oy >= hy + sprite_height(obj_1)) collided = 0;
+
+	// if ( collided ) {
+	// 	if (obj_1 == hero) {
+	// 		double dx = sprite_dx(hero), dy = sprite_dy(hero);
+
+	// 		if ( hy == oy + sprite_height(hero) - 1 && dy < 0 ) {
+	// 		    dy = -dy;
+	// 		}
+
+	// 		else if ( hx + sprite_width(hero) - 1 == ox && dx > 0 ) {
+	// 		    dx = 0;
+	// 		}
+
+	// 		else if ( hx == ox + sprite_width(obj_2) - 1 && dx < 0 ) {
+	// 		    dx = 0;
+	// 		}
+
+	// 		else {
+	// 		    dy = 0;
+    //             on_platform = 1;
+	// 		}
+
+	// 		sprite_back(hero);
+	// 		sprite_turn_to(hero, dx, dy);
+	// 	} else {
+	// 		sprite_move_to(hero, sprite_x(hero), sprite_y(obj_2) + sprite_height(obj_2));
+	// 	}
+	// }
+
+  return collided;
 }
 
 /**
@@ -209,6 +306,8 @@ void process() {
 		sprite_draw(&tower);
 		sprite_draw(&door);
 		sprite_draw(&mob);
+		sprite_draw(&key);
+		mob_move(&hero, &mob);
 	}
 	
 	
