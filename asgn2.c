@@ -39,7 +39,15 @@ uint8_t hero_bitmap[] = {
 };
 
 uint8_t tower_bitmap[] = {
+	0b01111111, 0b00000000, 0b11111111, 0b00000000, 0b11111111, 0b00000000, 0b11111111, 0b00000001, 0b11111110,
+	0b01000001, 0b00000000, 0b10000001, 0b00000000, 0b10000001, 0b00000000, 0b10000001, 0b00000000, 0b10000010,
+	0b01000001, 0b11111111, 0b10000001, 0b11111111, 0b10000001, 0b11111111, 0b10000001, 0b11111111, 0b10000010,
 	0b01000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000010,
+	0b01000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000010,
+	0b01000000, 0b00000000, 0b01111100, 0b00000000, 0b01111110, 0b00000000, 0b01111100, 0b00000000, 0b00000010,
+	0b01100000, 0b00000000, 0b01000100, 0b00000000, 0b01000010, 0b00000000, 0b01000100, 0b00000000, 0b00000110,
+	0b01100000, 0b00000000, 0b01000100, 0b00000000, 0b01000010, 0b00000000, 0b01000100, 0b00000000, 0b00000110,
+	0b01000000, 0b00000000, 0b01111100, 0b00000000, 0b01111110, 0b00000000, 0b01111100, 0b00000000, 0b00000010,
 	0b01000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000010,
 	0b01000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000010,
 	0b01000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000010,
@@ -120,9 +128,9 @@ void setup() {
 	lcd_init(contrast);
 
 	// Initialise sprites
-	hero = sprite_create(40, 30, 7, 10, hero_bitmap);
-	tower = sprite_create(6, 1, 72, 16, tower_bitmap);
-	door = sprite_create(30, 7, 24, 12, door_bitmap);
+	hero = sprite_create(LCD_X / 2, LCD_Y / 2, 7, 10, hero_bitmap);
+	tower = sprite_create(6, -10, 72, 26, tower_bitmap);
+	door = sprite_create(30, 5, 24, 12, door_bitmap);
 	mob = sprite_create(72, 20, 5, 6, mob_bitmap);
 	key = sprite_create(6, 20, 7, 3, key_bitmap);
 	sprite_set_speed(hero, hero_speed, hero_speed);
@@ -193,7 +201,9 @@ void sprite_move_all(sprite_id sprite, char direction) {
 }
 
 void move_all(char direction) {
-	sprite_move_all(tower, direction);
+	if (tower != NULL) {
+		sprite_move_all(tower, direction);
+	}
 	sprite_move_all(mob, direction);
 	sprite_move_all(key, direction);
 	sprite_move_all(door, direction);	
@@ -354,8 +364,6 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 
 	if (obj_1 == hero) {
 		sprite_back_all();
-	} else {
-		sprite_move_to(hero, sprite_x(hero), sprite_y(obj_2) + sprite_height(obj_2));
 	}
 
   return collided;
@@ -380,7 +388,7 @@ void next_level() {
 	sprite_destroy(key);
 
 	hero = sprite_create(40, 30, 7, 10, hero_bitmap);
-	sprite_set_speed(hero, 2, 2);
+	sprite_set_speed(hero, hero_speed, hero_speed);
 	// sprite_set_speed(mob, 1, 1);
 	
 }
@@ -419,6 +427,8 @@ void process() {
 		last_direction = 'U';
 		move_all('U');
 	}
+
+	draw_line(-10, -10, -10, 50, 1);
 
 	if (level == 1) {
 		sprite_draw(hero);
