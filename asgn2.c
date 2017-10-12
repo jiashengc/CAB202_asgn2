@@ -13,7 +13,9 @@
 #include <avr/interrupt.h>
 
 uint8_t level = 0;
+uint8_t lives = 3;
 uint8_t hero_speed = 2;
+uint16_t score = 0;
 char last_direction;
 
 // Initialise sprites
@@ -23,6 +25,10 @@ sprite_id door;
 sprite_id mob;
 sprite_id key;
 sprite_id treasure;
+sprite_id wall_left;
+sprite_id wall_right;
+sprite_id wall_top;
+sprite_id wall_bot;
 
 // Sprite vectors
 uint8_t hero_bitmap[] = {
@@ -93,6 +99,123 @@ uint8_t key_bitmap[] = {
 	0b11101010,
 };
 
+uint8_t treasure_bitmap[] = {
+	0b00100000,
+	0b01110000,
+	0b11111000,
+};
+
+uint8_t wall_top_bitmap[] = {
+	0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 
+	0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 
+	0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 
+};
+
+uint8_t wall_left_bitmap[] = {
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,	
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,	
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,	
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+	0b11100000,
+};
+
 void sprite_set_speed(sprite_id sprite, float dx, float dy);
 sprite_id sprite_create(float x, float y, uint8_t width, uint8_t height, uint8_t bitmap[]);
 
@@ -118,8 +241,9 @@ void setup() {
 	CLEAR_BIT(DDRD, 1); //UP
 	
 	// Initialise buttons
-	CLEAR_BIT(DDRF, 5); // SW2 LEFT BUTTON
-    CLEAR_BIT(DDRF, 6); // SW1 ?
+	CLEAR_BIT(DDRF, 5); // SW3 RIGHT BUTTON
+	CLEAR_BIT(DDRF, 6); // SW2 LEFT BUTTON
+	CLEAR_BIT(DDRB, 0); // CENTRE BUTTON
 
 	// Initialise backlight
 	SET_BIT(DDRC, 7);
@@ -133,8 +257,16 @@ void setup() {
 	door = sprite_create(30, 5, 24, 12, door_bitmap);
 	mob = sprite_create(72, 20, 5, 6, mob_bitmap);
 	key = sprite_create(6, 20, 7, 3, key_bitmap);
+
+	// Initialise walls 
+	wall_left = sprite_create(-40, -40, 3, 100, wall_left_bitmap);
+	wall_top = sprite_create(-40, -40, 160, 3, wall_top_bitmap);
+	wall_right = sprite_create(120, -40, 3, 100, wall_left_bitmap);
+	wall_bot = sprite_create(-40, 60, 160, 3, wall_top_bitmap);
+
+	// Initialise sprite movements
 	sprite_set_speed(hero, hero_speed, hero_speed);
-	sprite_set_speed(mob, 1, 1);
+	sprite_set_speed(mob, .5, .5);
 
 	show_screen();
 }
@@ -204,9 +336,16 @@ void move_all(char direction) {
 	if (tower != NULL) {
 		sprite_move_all(tower, direction);
 	}
+	if (treasure != NULL) {
+		sprite_move_all(treasure, direction);
+	} 
 	sprite_move_all(mob, direction);
 	sprite_move_all(key, direction);
-	sprite_move_all(door, direction);	
+	sprite_move_all(door, direction);
+	sprite_move_all(wall_left, direction);	
+	sprite_move_all(wall_top, direction);
+	sprite_move_all(wall_right, direction);
+	sprite_move_all(wall_bot, direction);
 }
 
 int sprite_back(sprite_id sprite) {
@@ -341,6 +480,8 @@ uint8_t sprite_height( sprite_id sprite ) {
 }
 
 void sprite_destroy( sprite_id sprite ) {
+	sprite->is_visible = 0;
+	sprite = NULL;
 	free(sprite);
 }
 
@@ -366,6 +507,10 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 		sprite_back_all();
 	}
 
+	if (obj_1 == mob) {
+		sprite_back(obj_1);
+	}
+
   return collided;
 }
 
@@ -375,29 +520,69 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
  */
 
 void next_level() {
+	//srand(time(NULL));
+	// uint8_t randNum_x;
+	// uint8_t randNum_y;
+
+	// randNum_x = rand() % LCD_X;
+	// randNum_y = rand() % LCD_Y;
+
 	clear_screen();
 	level += 1;
-	if (tower != NULL) {
-		sprite_destroy(tower);
-	}
+	// if (tower != NULL) {
+	// 	sprite_destroy(tower);
+	// }
 	if (treasure != NULL) {
 		sprite_destroy(treasure);
 	}
-	sprite_destroy(hero);
 	sprite_destroy(mob);
 	sprite_destroy(key);
+	sprite_destroy(door);
 
-	hero = sprite_create(40, 30, 7, 10, hero_bitmap);
-	sprite_set_speed(hero, hero_speed, hero_speed);
+	door = sprite_create(
+		rand() % LCD_X,
+		rand() % LCD_Y, 
+		24, 12, door_bitmap
+	);
+
+	mob = sprite_create(
+		rand() % LCD_X,
+		rand() % LCD_Y,
+		5, 6, mob_bitmap
+	);
+
+	key = sprite_create(
+		rand() % LCD_X,
+		rand() % LCD_Y,
+		7, 3, key_bitmap
+	);
+
+	treasure = sprite_create(
+		rand() % LCD_X,
+		rand() % LCD_Y,
+		5, 3, treasure_bitmap
+	);
+	//hero = sprite_create(LCD_X / 2, LCD_Y / 2, 7, 10, hero_bitmap);
+	//sprite_set_speed(hero, hero_speed, hero_speed);
 	// sprite_set_speed(mob, 1, 1);
 	
+}
+
+void status_screen() {
+	draw_string(5, 0, "Score: ", FG_COLOUR);
+	draw_int(40, 0, score, FG_COLOUR);
+	draw_string(5, 10, "Lives: ", FG_COLOUR);
+	draw_int(40, 10, lives, FG_COLOUR);
+	draw_string(5, 20, "Floor: ", FG_COLOUR);
+	draw_int(40, 20, level, FG_COLOUR);
+	draw_string(5, 30, "Time: ", FG_COLOUR);
 }
 
 void process() {
 	clear_screen();
 
 	// GUARD: Check if the start button has been pressed when level is 0
-	if (BIT_IS_SET(PINF, 5) && level == 0) {
+	if ((BIT_IS_SET(PINF, 5)|| BIT_IS_SET(PINF, 6))  && level == 0) {
 		level = 1;
 		return;
 	}
@@ -405,6 +590,13 @@ void process() {
 	// GUARD: Check if the level is still at 0
 	if (level == 0) {
 		draw_string(14, 23, "n9901990", FG_COLOUR);
+		show_screen();
+		return;
+	}
+
+	// GUARD: Check if player looks at status screen
+	if (BIT_IS_SET(PINB, 0) && level != 0) {
+		status_screen();
 		show_screen();
 		return;
 	}
@@ -428,7 +620,7 @@ void process() {
 		move_all('U');
 	}
 
-	draw_line(-10, -10, -10, 50, 1);
+	//draw_line(-10, -10, -10, 50, 1);
 
 	if (level == 1) {
 		sprite_draw(hero);
@@ -436,7 +628,7 @@ void process() {
 		sprite_draw(door);
 		sprite_draw(mob);
 		sprite_draw(key);
-		// mob_move(hero, mob);
+		mob_move(hero, mob);
 
 		process_collision(hero, tower);
 		process_collision(mob, tower);
@@ -456,9 +648,40 @@ void process() {
 		
 	}
 	
+	sprite_draw(wall_left);
+	sprite_draw(wall_top);
+	sprite_draw(wall_right);
+	sprite_draw(wall_bot);
+
 	if (level > 1) {
 		sprite_draw(hero);
+		sprite_draw(door);
+		sprite_draw(mob);
+		sprite_draw(key);
+		
+		if (treasure->is_visible == 1) {
+			sprite_draw(treasure);
+			if (process_collision(hero, treasure)) {
+				sprite_destroy(treasure);
+				score += 10;
+			}
+		}	
+
+		if(process_collision(hero, key)) {
+			sprite_follow(key, hero);
+
+			if (process_collision(hero, door)) {
+				next_level();
+			}
+		}
+
+		process_collision(hero, door);
 	}
+
+	process_collision(hero, wall_left);
+	process_collision(hero, wall_right);
+	process_collision(hero, wall_top);
+	process_collision(hero, wall_bot);
 
 	show_screen();
 }
