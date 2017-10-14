@@ -11,6 +11,8 @@
 #include "sprite.h"
 #include "lcd_model.h"
 #include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+#include "usb_serial.h"
 
 uint8_t level = 0;
 uint8_t lives = 3;
@@ -217,10 +219,18 @@ uint8_t wall_left_bitmap[] = {
 };
 
 void sprite_set_speed(sprite_id sprite, float dx, float dy);
+void setup_usb_serial(void);
 sprite_id sprite_create(float x, float y, uint8_t width, uint8_t height, uint8_t bitmap[]);
 
 void setup() {
 	uint8_t contrast = 175;
+
+	// Initialise lights
+	SET_BIT(DDRC, 7); // LCD LED
+	SET_BIT(PORTC, 7);
+
+	// Enable centre LED for output
+	SET_BIT(DDRD, 6);
 
 	// Initialise essentials
 	set_clock_speed(CPU_8MHz);
@@ -232,7 +242,13 @@ void setup() {
 	TCCR1B = 5;
 	TIMSK1 = 1;
 
+	// Set Timer 0 to overflow approx 122 times per second.
+	TCCR0B |= 4;
+	TIMSK0 = 1;
+	
 	sei();
+
+	setup_usb_serial();
 
 	// Enable joysticks
 	CLEAR_BIT(DDRB, 1); //LEFT
@@ -268,6 +284,22 @@ void setup() {
 	sprite_set_speed(hero, hero_speed, hero_speed);
 	sprite_set_speed(mob, .5, .5);
 
+	show_screen();
+}
+
+void setup_usb_serial(void) {
+	// Set up LCD and display message
+	draw_string(10, 10, "Connect USB...", FG_COLOUR);
+	show_screen();
+
+	usb_init();
+
+	while ( !usb_configured() ) {
+		// Block until USB is ready.
+	}
+
+	clear_screen();
+	draw_string(10, 10, "USB connected", FG_COLOUR);
 	show_screen();
 }
 
@@ -514,10 +546,11 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
   return collided;
 }
 
-
 /**
  * DRIVERS 
  */
+
+void loading_screen(void);
 
 void next_level() {
 	//srand(time(NULL));
@@ -538,12 +571,18 @@ void next_level() {
 	sprite_destroy(mob);
 	sprite_destroy(key);
 	sprite_destroy(door);
+	sprite_destroy(hero);
 
-	door = sprite_create(
-		rand() % LCD_X,
-		rand() % LCD_Y, 
-		24, 12, door_bitmap
-	);
+	while(!process_collision(mob, door)) {
+		sprite_destroy(door);
+		door = sprite_create(
+			rand() % LCD_X,
+			rand() % LCD_Y, 
+			24, 12, door_bitmap
+		);
+	}
+
+	
 
 	mob = sprite_create(
 		rand() % LCD_X,
@@ -562,10 +601,60 @@ void next_level() {
 		rand() % LCD_Y,
 		5, 3, treasure_bitmap
 	);
-	//hero = sprite_create(LCD_X / 2, LCD_Y / 2, 7, 10, hero_bitmap);
-	//sprite_set_speed(hero, hero_speed, hero_speed);
+
+	hero = sprite_create(
+		LCD_X / 2, 
+		LCD_Y / 2, 
+		7, 10, hero_bitmap
+	);
+
+	// Walls
+	sprite_destroy(wall_left);
+	sprite_destroy(wall_top);
+	sprite_destroy(wall_right);
+	sprite_destroy(wall_bot);
+
+	wall_left = sprite_create(-40, -40, 3, 100, wall_left_bitmap);
+	wall_top = sprite_create(-40, -40, 160, 3, wall_top_bitmap);
+	wall_right = sprite_create(120, -40, 3, 100, wall_left_bitmap);
+	wall_bot = sprite_create(-40, 60, 160, 3, wall_top_bitmap);
+
+	sprite_set_speed(mob, .5, .5);
 	// sprite_set_speed(mob, 1, 1);
+	loading_screen();
+}
+
+// ---------------------------------------------------------
+//	Timer overflow business.
+// ---------------------------------------------------------
+
+#define FREQ 8000000.0
+#define PRESCALE 256.0
+#define TIMER_SCALE 256.0
+
+double interval = 0;
+
+ISR(TIMER0_OVF_vect) {
+	interval += TIMER_SCALE * PRESCALE / FREQ;
+
+	if ( interval >= 1.0 ) {
+		// reset interval
+		interval = 0;
+
+		// Proof of life: toggle LED
+		uint8_t current_bit = BIT_VALUE(PORTD, 6);
+		WRITE_BIT(PORTD, 6, (1 - current_bit));
+	}
+}
+
+void loading_screen() {
+	draw_string(15, 10, "Loading...", FG_COLOUR);
+	draw_string(15, 20, "Floor: ", FG_COLOUR);
+	draw_int(52, 20, level, FG_COLOUR);
 	
+	show_screen();
+	_delay_ms(2200);
+	return;
 }
 
 void status_screen() {
@@ -598,7 +687,8 @@ void process() {
 
 	// GUARD: Check if the level is still at 0
 	if (level == 0) {
-		draw_string(14, 23, "n9901990", FG_COLOUR);
+		draw_string(20, 22, "n9901990", FG_COLOUR);
+		draw_string(6, 10, "Jia Sheng Chong", FG_COLOUR);
 		show_screen();
 		return;
 	}
@@ -667,6 +757,7 @@ void process() {
 		sprite_draw(door);
 		sprite_draw(mob);
 		sprite_draw(key);
+		mob_move(hero, mob);
 		
 		if (treasure->is_visible == 1) {
 			sprite_draw(treasure);
@@ -697,6 +788,8 @@ void process() {
 
 int main(void) {
 	setup();
+
+	_delay_ms(1000);
 
 	for ( ;; ) {
 		process();
