@@ -196,7 +196,7 @@ uint8_t wall_left_bitmap[] = {
 	0b11100000,
 	0b11100000,
 	0b11100000,
-	0b11100000,
+	0b11000000,
 	0b11100000,
 	0b11100000,
 	0b11100000,
@@ -488,8 +488,8 @@ void sprite_destroy( sprite_id sprite ) {
 int process_collision(sprite_id obj_1, sprite_id obj_2) {
 
 	// Get platform and bird screen locations.
-	uint8_t hx = round(sprite_x(obj_1)), hy = round(sprite_y(obj_1));
-	uint8_t ox = round(sprite_x(obj_2)), oy = round(sprite_y(obj_2));
+	int hx = round(sprite_x(obj_1)), hy = round(sprite_y(obj_1));
+	int ox = round(sprite_x(obj_2)), oy = round(sprite_y(obj_2));
 
 	// Check for collision
 	int collided = 1;
@@ -575,7 +575,16 @@ void status_screen() {
 	draw_int(40, 10, lives, FG_COLOUR);
 	draw_string(5, 20, "Floor: ", FG_COLOUR);
 	draw_int(40, 20, level, FG_COLOUR);
-	draw_string(5, 30, "Time: ", FG_COLOUR);
+	// draw_string(5, 30, "Time: ", FG_COLOUR);
+	
+	draw_int(5, 30, sprite_x(hero), FG_COLOUR);
+	draw_int(20, 30, sprite_y(hero), FG_COLOUR);
+	// draw_string(40, 30, process_collision(wall_left, hero) ? "True" : "False", FG_COLOUR);
+
+	// Stuff
+	draw_int(5, 40, sprite_x(wall_left), FG_COLOUR);
+	draw_int(20, 40, sprite_y(wall_left), FG_COLOUR);
+	draw_string(40, 40, process_collision(wall_left, hero) ? "True" : "False", FG_COLOUR);
 }
 
 void process() {
@@ -622,6 +631,11 @@ void process() {
 
 	//draw_line(-10, -10, -10, 50, 1);
 
+	sprite_draw(wall_left);
+	sprite_draw(wall_top);
+	sprite_draw(wall_right);
+	sprite_draw(wall_bot);
+
 	if (level == 1) {
 		sprite_draw(hero);
 		sprite_draw(tower);
@@ -647,11 +661,6 @@ void process() {
 		}
 		
 	}
-	
-	sprite_draw(wall_left);
-	sprite_draw(wall_top);
-	sprite_draw(wall_right);
-	sprite_draw(wall_bot);
 
 	if (level > 1) {
 		sprite_draw(hero);
