@@ -32,6 +32,8 @@ sprite_id wall_right;
 sprite_id wall_top;
 sprite_id wall_bot;
 
+sprite_id wall[6];
+
 // Sprite vectors
 uint8_t hero_bitmap[] = {
 	0b00101000,
@@ -198,7 +200,7 @@ uint8_t wall_left_bitmap[] = {
 	0b11100000,
 	0b11100000,
 	0b11100000,
-	0b11000000,
+	0b11100000,
 	0b11100000,
 	0b11100000,
 	0b11100000,
@@ -365,6 +367,7 @@ void sprite_move_all(sprite_id sprite, char direction) {
 }
 
 void move_all(char direction) {
+	uint8_t i = 0;
 	if (tower != NULL) {
 		sprite_move_all(tower, direction);
 	}
@@ -378,6 +381,14 @@ void move_all(char direction) {
 	sprite_move_all(wall_top, direction);
 	sprite_move_all(wall_right, direction);
 	sprite_move_all(wall_bot, direction);
+	
+	if (level == 1) {
+		return;
+	}
+
+	for (i = 0; i < 5; i++) {
+		sprite_move_all(wall[i], direction);
+	}
 }
 
 int sprite_back(sprite_id sprite) {
@@ -552,15 +563,17 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 
 void loading_screen(void);
 
-void next_level() {
-	//srand(time(NULL));
-	// uint8_t randNum_x;
-	// uint8_t randNum_y;
+void restart_level() {
 
-	// randNum_x = rand() % LCD_X;
-	// randNum_y = rand() % LCD_Y;
+}
+
+void next_level() {
+	uint8_t i;
 
 	clear_screen();
+	loading_screen();
+
+	score += 100;
 	level += 1;
 	// if (tower != NULL) {
 	// 	sprite_destroy(tower);
@@ -573,16 +586,11 @@ void next_level() {
 	sprite_destroy(door);
 	sprite_destroy(hero);
 
-	while(!process_collision(mob, door)) {
-		sprite_destroy(door);
-		door = sprite_create(
-			rand() % LCD_X,
-			rand() % LCD_Y, 
-			24, 12, door_bitmap
-		);
-	}
-
-	
+	door = sprite_create(
+		rand() % LCD_X,
+		rand() % LCD_Y, 
+		24, 12, door_bitmap
+	);
 
 	mob = sprite_create(
 		rand() % LCD_X,
@@ -619,9 +627,51 @@ void next_level() {
 	wall_right = sprite_create(120, -40, 3, 100, wall_left_bitmap);
 	wall_bot = sprite_create(-40, 60, 160, 3, wall_top_bitmap);
 
+	if (level > 2) {
+		for (i = 0; i < 5; i++) {
+			sprite_destroy(wall[i]);
+		}
+	}
+
+	for (i = 0; i < 5; i++) {
+
+		uint8_t t_width = i <= 2 ? 3 : 100 * 0.35;
+		uint8_t t_height = i <= 2 ? 160 * 0.35 : 3;
+		uint8_t t_collided = 0;
+		uint8_t n;
+
+		do {
+			wall[i] = sprite_create(
+				rand() % 130 + (-35),
+				rand() % 140 + (-35),
+				t_width,
+				t_height,
+				i <= 2 ? wall_left_bitmap : wall_top_bitmap
+			);
+
+			for (n = 0; n < i; n++) {
+				t_collided = process_collision(wall[i], wall[n]);
+			}
+
+			t_collided = t_collided 
+						|| process_collision(wall[i], hero) 
+						|| process_collision(wall[i], mob) 
+						|| process_collision(wall[i], key) 
+						|| process_collision(wall[i], door)
+						|| process_collision(wall[i], wall_left)
+						|| process_collision(wall[i], wall_right)
+						|| process_collision(wall[i], wall_top)
+						|| process_collision(wall[i], wall_bot); 
+
+			if (t_collided) {
+				sprite_destroy(wall[i]);
+			}
+
+		} while (t_collided);
+	}
+
 	sprite_set_speed(mob, .5, .5);
 	// sprite_set_speed(mob, 1, 1);
-	loading_screen();
 }
 
 // ---------------------------------------------------------
@@ -648,6 +698,7 @@ ISR(TIMER0_OVF_vect) {
 }
 
 void loading_screen() {
+	clear_screen();
 	draw_string(15, 10, "Loading...", FG_COLOUR);
 	draw_string(15, 20, "Floor: ", FG_COLOUR);
 	draw_int(52, 20, level, FG_COLOUR);
@@ -726,39 +777,26 @@ void process() {
 	sprite_draw(wall_right);
 	sprite_draw(wall_bot);
 
-	if (level == 1) {
-		sprite_draw(hero);
-		sprite_draw(tower);
-		sprite_draw(door);
-		sprite_draw(mob);
-		sprite_draw(key);
-		mob_move(hero, mob);
+	sprite_draw(hero);
+	sprite_draw(door);
+	sprite_draw(mob);
+	sprite_draw(key);
+	mob_move(hero, mob);
 
+	if (level == 1) {
+		sprite_draw(tower);
 		process_collision(hero, tower);
 		process_collision(mob, tower);
-
-		if (process_collision(hero, mob)) {
-			// sprite_visible(hero, 0);
-			sprite_destroy(hero);
-		}
-
-		if(process_collision(hero, key)) {
-			sprite_follow(key, hero);
-
-			if (process_collision(hero, door)) {
-				next_level();
-			}
-		}
 		
 	}
 
 	if (level > 1) {
-		sprite_draw(hero);
-		sprite_draw(door);
-		sprite_draw(mob);
-		sprite_draw(key);
-		mob_move(hero, mob);
-		
+		uint8_t i = 0;
+		for (i = 0; i < 5; i++) {
+			sprite_draw(wall[i]);
+			process_collision(hero, wall[i]);
+		}
+
 		if (treasure->is_visible == 1) {
 			sprite_draw(treasure);
 			if (process_collision(hero, treasure)) {
@@ -766,17 +804,27 @@ void process() {
 				score += 10;
 			}
 		}	
-
-		if(process_collision(hero, key)) {
-			sprite_follow(key, hero);
-
-			if (process_collision(hero, door)) {
-				next_level();
-			}
-		}
-
-		process_collision(hero, door);
 	}
+
+	// Check if the hero touches the monster
+	if (process_collision(hero, mob)) {
+		sprite_destroy(hero);
+		restart_level();
+	}
+
+	// Check if the hero touches the key
+	// And if the hero touches the key and touches the door
+	// Move on to the next level
+	if(process_collision(hero, key)) {
+		sprite_follow(key, hero);
+
+		if (process_collision(hero, door)) {
+			next_level();
+		}
+	}
+
+	// Checks if the hero is touching the door without the key
+	process_collision(hero, door);
 
 	process_collision(hero, wall_left);
 	process_collision(hero, wall_right);
