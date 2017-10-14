@@ -13,12 +13,19 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include "usb_serial.h"
+#include "string.h"
+
+#define walls_n 0
 
 uint8_t level = 0;
 uint8_t lives = 3;
 uint8_t hero_speed = 2;
 uint16_t score = 0;
+
+uint8_t hero_x = 0;
+uint8_t hero_y = 0;
 char last_direction;
+char *message = "";
 
 // Initialise sprites
 sprite_id hero;
@@ -32,7 +39,7 @@ sprite_id wall_right;
 sprite_id wall_top;
 sprite_id wall_bot;
 
-sprite_id wall[6];
+sprite_id wall[walls_n];
 
 // Sprite vectors
 uint8_t hero_bitmap[] = {
@@ -240,9 +247,9 @@ void setup() {
 	lcd_clear();
 
 	// Initialise timer 3
-	TCCR1A = 0;
-	TCCR1B = 5;
-	TIMSK1 = 1;
+	// TCCR1A = 0;
+	// TCCR1B = 5;
+	// TIMSK1 = 1;
 
 	// Set Timer 0 to overflow approx 122 times per second.
 	TCCR0B |= 4;
@@ -289,19 +296,28 @@ void setup() {
 	show_screen();
 }
 
+void usb_serial_send(char * message) {
+	// Cast to avoid "error: pointer targets in passing argument 1 
+	//	of 'usb_serial_write' differ in signedness"
+	usb_serial_write((uint8_t *) message, strlen(message));
+}
+
 void setup_usb_serial(void) {
 	// Set up LCD and display message
-	draw_string(10, 10, "Connect USB...", FG_COLOUR);
+	draw_string(5, 10, "Connect Serial", FG_COLOUR);
 	show_screen();
 
 	usb_init();
 
-	while ( !usb_configured() ) {
+	while (!usb_serial_available()) {
 		// Block until USB is ready.
 	}
 
+	message = "Welcome";
+	usb_serial_send(message);
+
 	clear_screen();
-	draw_string(10, 10, "USB connected", FG_COLOUR);
+	draw_string(10, 10, "Serial connected", FG_COLOUR);
 	show_screen();
 }
 
@@ -309,15 +325,15 @@ void setup_usb_serial(void) {
  * ALL HELPER FUNCTIONS
  */
 
-volatile uint32_t overflow_counter = 3;
+// volatile uint32_t overflow_counter = 3;
 
-ISR(TIMER1_OVF_vect) {
-	overflow_counter++;
-}
+// ISR(TIMER1_OVF_vect) {
+// 	overflow_counter++;
+// }
  
-double elapsed_time(void) {
-	return (overflow_counter * 65536.0 + TCNT1) * 1024 / 8000000;
-}
+// double elapsed_time(void) {
+// 	return (overflow_counter * 65536.0 + TCNT1) * 1024 / 8000000;
+// }
 
 char buffer[20];
 
@@ -386,7 +402,7 @@ void move_all(char direction) {
 		return;
 	}
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < walls_n; i++) {
 		sprite_move_all(wall[i], direction);
 	}
 }
@@ -628,12 +644,12 @@ void next_level() {
 	wall_bot = sprite_create(-40, 60, 160, 3, wall_top_bitmap);
 
 	if (level > 2) {
-		for (i = 0; i < 5; i++) {
+		for (i = 0; i < walls_n; i++) {
 			sprite_destroy(wall[i]);
 		}
 	}
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < walls_n; i++) {
 
 		uint8_t t_width = i <= 2 ? 3 : 100 * 0.35;
 		uint8_t t_height = i <= 2 ? 160 * 0.35 : 3;
@@ -674,6 +690,11 @@ void next_level() {
 	// sprite_set_speed(mob, 1, 1);
 }
 
+int sprite_find_x(void) {
+
+	return 0;
+}
+
 // ---------------------------------------------------------
 //	Timer overflow business.
 // ---------------------------------------------------------
@@ -682,10 +703,14 @@ void next_level() {
 #define PRESCALE 256.0
 #define TIMER_SCALE 256.0
 
-double interval = 0;
+float interval = 0;
 
 ISR(TIMER0_OVF_vect) {
 	interval += TIMER_SCALE * PRESCALE / FREQ;
+
+	if (interval >= 0.5 && interval <= 0.51 && level != 0) {
+		usb_serial_send("\r\nScore: ");
+	}
 
 	if ( interval >= 1.0 ) {
 		// reset interval
@@ -792,7 +817,7 @@ void process() {
 
 	if (level > 1) {
 		uint8_t i = 0;
-		for (i = 0; i < 5; i++) {
+		for (i = 0; i < walls_n; i++) {
 			sprite_draw(wall[i]);
 			process_collision(hero, wall[i]);
 		}
