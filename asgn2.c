@@ -317,7 +317,7 @@ void setup_usb_serial(void) {
 	usb_serial_send(message);
 
 	clear_screen();
-	draw_string(10, 10, "Serial connected", FG_COLOUR);
+	draw_string(2, 10, "Serial connected", FG_COLOUR);
 	show_screen();
 }
 
@@ -580,6 +580,15 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 void game_over_screen(void);
 void loading_screen(void);
 
+uint8_t door_x;
+uint8_t door_y;
+uint8_t mob_x;
+uint8_t mob_y;
+uint8_t key_x;
+uint8_t key_y;
+uint8_t treasure_x;
+uint8_t treasure_y;
+
 void restart_level() {
 	lives -= 1;
 
@@ -618,6 +627,47 @@ void restart_level() {
 		sprite_set_speed(mob, .5, .5);
 	}
 
+	if (level > 1) {
+		sprite_destroy(hero);
+		sprite_destroy(treasure);
+		sprite_destroy(door);
+		sprite_destroy(mob);
+		sprite_destroy(key);
+
+		door = sprite_create(
+			door_x,
+			door_y, 
+			24, 12, door_bitmap
+		);
+	
+		mob = sprite_create(
+			mob_x,
+			mob_y,
+			5, 6, mob_bitmap
+		);
+	
+		key = sprite_create(
+			key_x,
+			key_y,
+			7, 3, key_bitmap
+		);
+	
+		treasure = sprite_create(
+			treasure_x,
+			treasure_y,
+			5, 3, treasure_bitmap
+		);
+	
+		hero = sprite_create(
+			LCD_X / 2, 
+			LCD_Y / 2, 
+			7, 10, hero_bitmap
+		);
+
+		sprite_set_speed(hero, hero_speed, hero_speed);
+		sprite_set_speed(mob, .5, .5);
+	}
+
 }
 
 void next_level() {
@@ -639,27 +689,39 @@ void next_level() {
 	sprite_destroy(door);
 	sprite_destroy(hero);
 
+	door_x = rand() % LCD_X;
+	door_y = rand() % LCD_Y;
+
+	mob_x = rand() % LCD_X;
+	mob_y = rand() % LCD_Y;
+
+	key_x = rand() % LCD_X;
+	key_y = rand() % LCD_Y;
+
+	treasure_x = rand() % LCD_X;
+	treasure_y = rand() % LCD_Y;
+
 	door = sprite_create(
-		rand() % LCD_X,
-		rand() % LCD_Y, 
+		door_x,
+		door_y, 
 		24, 12, door_bitmap
 	);
 
 	mob = sprite_create(
-		rand() % LCD_X,
-		rand() % LCD_Y,
+		mob_x,
+		mob_y,
 		5, 6, mob_bitmap
 	);
 
 	key = sprite_create(
-		rand() % LCD_X,
-		rand() % LCD_Y,
+		key_x,
+		key_y,
 		7, 3, key_bitmap
 	);
 
 	treasure = sprite_create(
-		rand() % LCD_X,
-		rand() % LCD_Y,
+		treasure_x,
+		treasure_y,
 		5, 3, treasure_bitmap
 	);
 
@@ -808,7 +870,7 @@ void loading_screen() {
 	clear_screen();
 	draw_string(15, 10, "Loading...", FG_COLOUR);
 	draw_string(15, 20, "Floor: ", FG_COLOUR);
-	draw_int(52, 20, level - 1, FG_COLOUR);
+	draw_int(52, 20, level, FG_COLOUR);
 	
 	show_screen();
 	_delay_ms(2200);
@@ -821,7 +883,7 @@ void status_screen() {
 	draw_string(5, 10, "Lives: ", FG_COLOUR);
 	draw_int(40, 10, lives, FG_COLOUR);
 	draw_string(5, 20, "Floor: ", FG_COLOUR);
-	draw_int(40, 20, level, FG_COLOUR);
+	draw_int(40, 20, level - 1, FG_COLOUR);
 	// draw_string(5, 30, "Time: ", FG_COLOUR);
 	
 	draw_int(5, 30, sprite_x(hero), FG_COLOUR);
@@ -899,6 +961,9 @@ void process() {
 
 	if (level > 1) {
 		uint8_t i = 0;
+
+		process_collision(mob, door);
+
 		for (i = 0; i < walls_n; i++) {
 			sprite_draw(wall[i]);
 			process_collision(hero, wall[i]);
