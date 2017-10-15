@@ -1039,10 +1039,30 @@ int sprite_find_x(void) {
 
 float interval = 0;
 
+void send_data() {
+	sprintf(message, "\r\n%d:%d%d", o_minutes, o_tenth_seconds, o_seconds);
+	usb_serial_send(message);
+	sprintf(message, "%d", score);
+	usb_serial_send(" | Score: ");
+	usb_serial_send(message);
+	usb_serial_send(" | Floor: ");
+	sprintf(message, "%d", level);
+	usb_serial_send(message);
+	usb_serial_send(" | Lives: ");
+	sprintf(message, "%d", lives);
+	usb_serial_send(message);
+}
+
 ISR(TIMER0_OVF_vect) {
 	interval += TIMER_SCALE * PRESCALE / FREQ;
 
 	srand((unsigned) (int)(interval * 10 * seconds * tenth_seconds));
+
+	if ( interval >= 0.45 && interval <= 0.455) {
+		if (level != 0) {
+			send_data();
+		}
+	}
 
 	if ( interval >= 0.97 ) {
 
@@ -1067,17 +1087,7 @@ ISR(TIMER0_OVF_vect) {
 		}	
 
 		if (level != 0) {
-			sprintf(message, "\r\n%d:%d%d", o_minutes, o_tenth_seconds, o_seconds);
-			usb_serial_send(message);
-			sprintf(message, "%d", score);
-			usb_serial_send(" | Score: ");
-			usb_serial_send(message);
-			usb_serial_send(" | Floor: ");
-			sprintf(message, "%d", level);
-			usb_serial_send(message);
-			usb_serial_send(" | Lives: ");
-			sprintf(message, "%d", lives);
-			usb_serial_send(message);
+			send_data();
 		}
 
 		// reset interval
