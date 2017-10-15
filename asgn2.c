@@ -20,6 +20,9 @@
 uint8_t level = 0;
 uint8_t lives = 3;
 uint8_t hero_speed = 2;
+uint8_t minutes = 0;
+uint8_t tenth_seconds = 0;
+uint8_t seconds = 0;
 uint16_t score = 0;
 
 uint8_t hero_x = 0;
@@ -807,7 +810,17 @@ float interval = 0;
 ISR(TIMER0_OVF_vect) {
 	interval += TIMER_SCALE * PRESCALE / FREQ;
 
-	if ( interval >= 1.0 ) {
+	if ( interval >= 0.97 ) {
+
+		seconds += 1;
+		if (seconds >= 10) {
+			seconds = 0;
+			tenth_seconds += 1;
+		}
+		if (tenth_seconds >= 6) {
+			tenth_seconds = 0;
+			minutes += 1;
+		}
 
 		if (level != 0) {
 			usb_serial_send("\r\nScore: ");
@@ -857,6 +870,9 @@ void game_over_screen() {
 	score = 0;
 	lives = 3;
 	level = 0;
+	minutes = 0;
+	tenth_seconds = 0;
+	seconds = 0;
 
 	show_screen();
 
@@ -884,16 +900,11 @@ void status_screen() {
 	draw_int(40, 10, lives, FG_COLOUR);
 	draw_string(5, 20, "Floor: ", FG_COLOUR);
 	draw_int(40, 20, level - 1, FG_COLOUR);
-	// draw_string(5, 30, "Time: ", FG_COLOUR);
-	
-	draw_int(5, 30, sprite_x(hero), FG_COLOUR);
-	draw_int(20, 30, sprite_y(hero), FG_COLOUR);
-	// draw_string(40, 30, process_collision(wall_left, hero) ? "True" : "False", FG_COLOUR);
-
-	// Stuff
-	draw_int(5, 40, sprite_x(wall_left), FG_COLOUR);
-	draw_int(20, 40, sprite_y(wall_left), FG_COLOUR);
-	draw_string(40, 40, process_collision(wall_left, hero) ? "True" : "False", FG_COLOUR);
+	draw_string(5, 30, "Time: ", FG_COLOUR);
+	draw_int(40, 30, minutes, FG_COLOUR);
+	draw_string(45, 30, ":", FG_COLOUR);
+	draw_int(50, 30, tenth_seconds, FG_COLOUR);
+	draw_int(55, 30, seconds, FG_COLOUR);
 }
 
 void process() {
