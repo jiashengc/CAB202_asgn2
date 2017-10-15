@@ -545,8 +545,8 @@ void sprite_follow(sprite_id sprite_1, sprite_id sprite_2) {
 }
 
 void sprite_follow_2(sprite_id sprite_1, sprite_id sprite_2) {
-	sprite_1->x = sprite_2->x - (sprite_2->width / 2) + 1;
-	sprite_1->y = sprite_2->y + (sprite_2->height / 2);
+	sprite_1->x = sprite_2->x - (sprite_2->width / 2) + 6;
+	sprite_1->y = sprite_2->y + (sprite_2->height / 2) - 1;
 }
 
 uint8_t sprite_width( sprite_id sprite ) {
@@ -577,7 +577,7 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
 	if ( ox >= hx + sprite_width(obj_1)) collided = 0;
 	if ( oy >= hy + sprite_height(obj_1)) collided = 0;
 
-	if (!collided || obj_2 == key) {
+	if (!collided || obj_2 == key || obj_2 == shield) {
 		return collided;
 	}
 
@@ -685,7 +685,6 @@ void restart_level() {
 			7, 10, hero_bitmap
 		);
 
-
 		sprite_set_speed(hero, hero_speed, hero_speed);
 		sprite_set_speed(mob, .5, .5);
 	}
@@ -771,7 +770,8 @@ void next_level() {
 		process_collision(treasure, key)
 	);
 	
-	if ((rand() % 10) > 7) {
+	// TODO
+	if ((rand() % 10) > 1) {
 		do {
 			if (shield != NULL) {
 				sprite_destroy(shield);
@@ -1045,19 +1045,6 @@ void process() {
 	if (level > 1) {
 		uint8_t i = 0;
 
-		if (shield != NULL) {
-			sprite_draw(shield);
-
-			if (process_collision(hero, shield)) {
-				sprite_follow_2(shield, hero);
-
-				if (process_collision(hero, mob)) {
-					sprite_destroy(mob);
-					sprite_destroy(shield);
-				}
-			}
-		}
-
 		process_collision(mob, door);
 
 		for (i = 0; i < walls_n; i++) {
@@ -1094,6 +1081,21 @@ void process() {
 	process_collision(hero, wall_bot);
 
 	// Check if the hero touches the monster
+	if (shield != NULL) {
+		sprite_draw(shield);
+
+		if (process_collision(hero, shield)) {
+			sprite_follow_2(shield, hero);
+
+			if (process_collision(hero, mob) || process_collision(shield, mob)) {
+				mob->x = 200;
+				mob->y = 200;
+				sprite_destroy(mob);
+				sprite_destroy(shield);
+			}
+		}
+	}
+	
 	if (mob != NULL) {
 		if (process_collision(hero, mob)) {
 			sprite_destroy(hero);
