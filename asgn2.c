@@ -37,6 +37,7 @@ sprite_id door;
 sprite_id mob;
 sprite_id key;
 sprite_id treasure;
+sprite_id shield;
 sprite_id wall_left;
 sprite_id wall_right;
 sprite_id wall_top;
@@ -117,6 +118,13 @@ uint8_t treasure_bitmap[] = {
 	0b00100000,
 	0b01110000,
 	0b11111000,
+};
+
+uint8_t shield_bitmap[] = {
+	0b11110000,
+	0b11110000,
+	0b11110000,
+	0b01100000,
 };
 
 uint8_t wall_top_bitmap[] = {
@@ -393,6 +401,9 @@ void move_all(char direction) {
 	if (treasure != NULL) {
 		sprite_move_all(treasure, direction);
 	} 
+	if (shield != NULL) {
+		sprite_move_all(shield, direction);
+	}
 	sprite_move_all(mob, direction);
 	sprite_move_all(key, direction);
 	sprite_move_all(door, direction);
@@ -533,6 +544,11 @@ void sprite_follow(sprite_id sprite_1, sprite_id sprite_2) {
 	sprite_1->y = sprite_2->y + (sprite_2->height / 2);
 }
 
+void sprite_follow_2(sprite_id sprite_1, sprite_id sprite_2) {
+	sprite_1->x = sprite_2->x - (sprite_2->width / 2) + 1;
+	sprite_1->y = sprite_2->y + (sprite_2->height / 2);
+}
+
 uint8_t sprite_width( sprite_id sprite ) {
 	return sprite->width;
 }
@@ -591,6 +607,8 @@ uint8_t key_x;
 uint8_t key_y;
 uint8_t treasure_x;
 uint8_t treasure_y;
+uint8_t shield_x;
+uint8_t shield_y;
 
 void restart_level() {
 	lives -= 1;
@@ -667,6 +685,7 @@ void restart_level() {
 			7, 10, hero_bitmap
 		);
 
+
 		sprite_set_speed(hero, hero_speed, hero_speed);
 		sprite_set_speed(mob, .5, .5);
 	}
@@ -681,59 +700,98 @@ void next_level() {
 
 	score += 100;
 	level += 1;
-	// if (tower != NULL) {
-	// 	sprite_destroy(tower);
-	// }
-	if (treasure != NULL) {
-		sprite_destroy(treasure);
+	if (tower != NULL) {
+		sprite_destroy(tower);
 	}
-	sprite_destroy(mob);
-	sprite_destroy(key);
-	sprite_destroy(door);
+	
+	// Create hero
 	sprite_destroy(hero);
-
-	door_x = rand() % LCD_X;
-	door_y = rand() % LCD_Y;
-
-	mob_x = rand() % LCD_X;
-	mob_y = rand() % LCD_Y;
-
-	key_x = rand() % LCD_X;
-	key_y = rand() % LCD_Y;
-
-	treasure_x = rand() % LCD_X;
-	treasure_y = rand() % LCD_Y;
-
-	door = sprite_create(
-		door_x,
-		door_y, 
-		24, 12, door_bitmap
-	);
-
-	mob = sprite_create(
-		mob_x,
-		mob_y,
-		5, 6, mob_bitmap
-	);
-
-	key = sprite_create(
-		key_x,
-		key_y,
-		7, 3, key_bitmap
-	);
-
-	treasure = sprite_create(
-		treasure_x,
-		treasure_y,
-		5, 3, treasure_bitmap
-	);
-
 	hero = sprite_create(
 		LCD_X / 2, 
 		LCD_Y / 2, 
 		7, 10, hero_bitmap
 	);
 
+	do {
+		sprite_destroy(door);
+		door_x = rand() % LCD_X;
+		door_y = rand() % LCD_Y;
+		door = sprite_create(
+			door_x,
+			door_y, 
+			24, 12, door_bitmap
+		);
+	} while (process_collision(door, hero));
+
+	do {
+		sprite_destroy(mob);
+		mob_x = rand() % LCD_X;
+		mob_y = rand() % LCD_Y;
+		mob = sprite_create(
+			mob_x,
+			mob_y,
+			5, 6, mob_bitmap
+		);
+	} while (
+		process_collision(mob, hero) ||
+		process_collision(mob, door)
+	);
+
+	do {
+		sprite_destroy(key);
+		key_x = rand() % LCD_X;
+		key_y = rand() % LCD_Y;
+		key = sprite_create(
+			key_x,
+			key_y,
+			7, 3, key_bitmap
+		);
+	} while (
+		process_collision(key, hero) ||
+		process_collision(key, door) ||
+		process_collision(key, mob) 
+	);
+
+	
+	do {
+		if (treasure != NULL) {
+			sprite_destroy(treasure);
+		}
+		treasure_x = rand() % LCD_X;
+		treasure_y = rand() % LCD_Y;
+		treasure = sprite_create(
+			treasure_x,
+			treasure_y,
+			5, 3, treasure_bitmap
+		);
+	} while(
+		process_collision(treasure, hero) ||
+		process_collision(treasure, door) ||
+		process_collision(treasure, mob) ||
+		process_collision(treasure, key)
+	);
+	
+	if ((rand() % 10) > 7) {
+		do {
+			if (shield != NULL) {
+				sprite_destroy(shield);
+			}
+			shield_x = rand() % LCD_X;
+			shield_y = rand() % LCD_Y;
+			shield = sprite_create(
+				shield_x,
+				shield_y,
+				4, 4, shield_bitmap
+			);
+		} while (
+			process_collision(shield, hero) ||
+			process_collision(shield, door) ||
+			process_collision(shield, mob) ||
+			process_collision(shield, key) ||
+			process_collision(shield, treasure)
+		);
+	}
+		
 	// Walls
 	sprite_destroy(wall_left);
 	sprite_destroy(wall_top);
@@ -810,6 +868,8 @@ float interval = 0;
 ISR(TIMER0_OVF_vect) {
 	interval += TIMER_SCALE * PRESCALE / FREQ;
 
+	srand((unsigned) (int)(interval * 10));
+
 	if ( interval >= 0.97 ) {
 
 		seconds += 1;
@@ -821,6 +881,7 @@ ISR(TIMER0_OVF_vect) {
 			tenth_seconds = 0;
 			minutes += 1;
 		}
+			
 
 		if (level != 0) {
 			usb_serial_send("\r\nScore: ");
@@ -877,8 +938,17 @@ void game_over_screen() {
 	show_screen();
 
 	do {
-
+		
 	} while((!BIT_IS_SET(PINF, 5) && !BIT_IS_SET(PINF, 6)));
+
+	clear_screen();
+	draw_string(20, 22, "n9901990", FG_COLOUR);
+	draw_string(6, 10, "Jia Sheng Chong", FG_COLOUR);
+	show_screen();
+
+	do {
+		
+	} while((!BIT_IS_SET(PINF, 5) && !BIT_IS_SET(PINF, 6)));	
 
 }
 
@@ -956,12 +1026,14 @@ void process() {
 	sprite_draw(wall_top);
 	sprite_draw(wall_right);
 	sprite_draw(wall_bot);
-
 	sprite_draw(hero);
 	sprite_draw(door);
-	sprite_draw(mob);
+	
 	sprite_draw(key);
-	mob_move(hero, mob);
+	if (mob != NULL) {
+		sprite_draw(mob);
+		mob_move(hero, mob);
+	}
 
 	if (level == 1) {
 		sprite_draw(tower);
@@ -972,6 +1044,19 @@ void process() {
 
 	if (level > 1) {
 		uint8_t i = 0;
+
+		if (shield != NULL) {
+			sprite_draw(shield);
+
+			if (process_collision(hero, shield)) {
+				sprite_follow_2(shield, hero);
+
+				if (process_collision(hero, mob)) {
+					sprite_destroy(mob);
+					sprite_destroy(shield);
+				}
+			}
+		}
 
 		process_collision(mob, door);
 
@@ -987,12 +1072,6 @@ void process() {
 				score += 10;
 			}
 		}	
-	}
-
-	// Check if the hero touches the monster
-	if (process_collision(hero, mob)) {
-		sprite_destroy(hero);
-		restart_level();
 	}
 
 	// Check if the hero touches the key
@@ -1013,6 +1092,15 @@ void process() {
 	process_collision(hero, wall_right);
 	process_collision(hero, wall_top);
 	process_collision(hero, wall_bot);
+
+	// Check if the hero touches the monster
+	if (mob != NULL) {
+		if (process_collision(hero, mob)) {
+			sprite_destroy(hero);
+			restart_level();
+		}
+	}
+	
 
 	show_screen();
 }
