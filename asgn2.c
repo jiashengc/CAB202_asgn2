@@ -309,9 +309,9 @@ void setup_usb_serial(void) {
 
 	usb_init();
 
-	while (!usb_serial_available()) {
+	//while (!usb_serial_available()) {
 		// Block until USB is ready.
-	}
+	//}
 
 	message = "Welcome";
 	usb_serial_send(message);
@@ -577,9 +577,46 @@ int process_collision(sprite_id obj_1, sprite_id obj_2) {
  * DRIVERS 
  */
 
+void game_over_screen(void);
 void loading_screen(void);
 
 void restart_level() {
+	lives -= 1;
+
+	sprite_destroy(wall_left);
+	sprite_destroy(wall_top);
+	sprite_destroy(wall_right);
+	sprite_destroy(wall_bot);
+
+	// GUARD: Check if the lives is 0
+	if (lives <= 0) {
+		game_over_screen();
+	}
+
+	if (level == 1) {
+		sprite_destroy(hero);
+		sprite_destroy(tower);
+		sprite_destroy(door);
+		sprite_destroy(mob);
+		sprite_destroy(key);
+
+		// Initialise sprites
+		hero = sprite_create(LCD_X / 2, LCD_Y / 2, 7, 10, hero_bitmap);
+		tower = sprite_create(6, -10, 72, 26, tower_bitmap);
+		door = sprite_create(30, 5, 24, 12, door_bitmap);
+		mob = sprite_create(72, 20, 5, 6, mob_bitmap);
+		key = sprite_create(6, 20, 7, 3, key_bitmap);
+
+		// Initialise walls 
+		wall_left = sprite_create(-40, -40, 3, 100, wall_left_bitmap);
+		wall_top = sprite_create(-40, -40, 160, 3, wall_top_bitmap);
+		wall_right = sprite_create(120, -40, 3, 100, wall_left_bitmap);
+		wall_bot = sprite_create(-40, 60, 160, 3, wall_top_bitmap);
+
+		// Initialise sprite movements
+		sprite_set_speed(hero, hero_speed, hero_speed);
+		sprite_set_speed(mob, .5, .5);
+	}
 
 }
 
@@ -708,11 +745,12 @@ float interval = 0;
 ISR(TIMER0_OVF_vect) {
 	interval += TIMER_SCALE * PRESCALE / FREQ;
 
-	if (interval >= 0.5 && interval <= 0.51 && level != 0) {
-		usb_serial_send("\r\nScore: ");
-	}
-
 	if ( interval >= 1.0 ) {
+
+		if (level != 0) {
+			usb_serial_send("\r\nScore: ");
+		}
+
 		// reset interval
 		interval = 0;
 
@@ -722,11 +760,55 @@ ISR(TIMER0_OVF_vect) {
 	}
 }
 
+void game_over_screen() {
+	clear_screen();
+
+	sprite_destroy(hero);
+	sprite_destroy(tower);
+	sprite_destroy(door);
+	sprite_destroy(mob);
+	sprite_destroy(key);
+
+	draw_string(15, 0, "GAME OVER", FG_COLOUR);
+	draw_string(5, 10, "Score: ", FG_COLOUR);
+	draw_int(40, 10, score, FG_COLOUR);
+	draw_string(5, 20, "Floor: ", FG_COLOUR);
+	draw_int(40, 20, level - 1, FG_COLOUR);
+
+	// Initialise sprites
+	hero = sprite_create(LCD_X / 2, LCD_Y / 2, 7, 10, hero_bitmap);
+	tower = sprite_create(6, -10, 72, 26, tower_bitmap);
+	door = sprite_create(30, 5, 24, 12, door_bitmap);
+	mob = sprite_create(72, 20, 5, 6, mob_bitmap);
+	key = sprite_create(6, 20, 7, 3, key_bitmap);
+
+	// Initialise walls 
+	wall_left = sprite_create(-40, -40, 3, 100, wall_left_bitmap);
+	wall_top = sprite_create(-40, -40, 160, 3, wall_top_bitmap);
+	wall_right = sprite_create(120, -40, 3, 100, wall_left_bitmap);
+	wall_bot = sprite_create(-40, 60, 160, 3, wall_top_bitmap);
+
+	// Initialise sprite movements
+	sprite_set_speed(hero, hero_speed, hero_speed);
+	sprite_set_speed(mob, .5, .5);
+
+	score = 0;
+	lives = 3;
+	level = 0;
+
+	show_screen();
+
+	do {
+
+	} while((!BIT_IS_SET(PINF, 5) && !BIT_IS_SET(PINF, 6)));
+
+}
+
 void loading_screen() {
 	clear_screen();
 	draw_string(15, 10, "Loading...", FG_COLOUR);
 	draw_string(15, 20, "Floor: ", FG_COLOUR);
-	draw_int(52, 20, level, FG_COLOUR);
+	draw_int(52, 20, level - 1, FG_COLOUR);
 	
 	show_screen();
 	_delay_ms(2200);
@@ -756,7 +838,7 @@ void process() {
 	clear_screen();
 
 	// GUARD: Check if the start button has been pressed when level is 0
-	if ((BIT_IS_SET(PINF, 5)|| BIT_IS_SET(PINF, 6))  && level == 0) {
+	if ((BIT_IS_SET(PINF, 5) || BIT_IS_SET(PINF, 6)) && level == 0) {
 		level = 1;
 		return;
 	}
