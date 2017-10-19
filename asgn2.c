@@ -36,6 +36,8 @@ uint8_t has_key = 0;
 
 uint8_t hero_x = 0;
 uint8_t hero_y = 0;
+
+uint8_t mob_init[mob_n] = {0};
 char last_direction;
 char *message = "";
 
@@ -588,8 +590,14 @@ uint8_t sprite_height( sprite_id sprite ) {
 
 void sprite_destroy( sprite_id sprite ) {
 	sprite->is_visible = 0;
+	sprite->x = rand() % 500 + 200;
+	sprite->y = rand() % 500 + 200;
 	sprite = NULL;
 	free(sprite);
+}
+
+int sprite_exists(sprite_id sprite) {
+	return sprite != NULL || sprite->is_visible != 0;
 }
 
 int process_collision(sprite_id obj_1, sprite_id obj_2) {
@@ -641,6 +649,8 @@ uint8_t treasure_x[treasure_n];
 uint8_t treasure_y[treasure_n];
 uint8_t shield_x;
 uint8_t shield_y;
+uint8_t wall_x[walls_n];
+uint8_t wall_y[walls_n];
 
 void restart_level() {
 	has_shield = 0;
@@ -661,7 +671,7 @@ void restart_level() {
 
 	if (level == 1) {
 		for (i = 0; i < mob_n; i++) {
-			if (&mob[i] != NULL) {
+			if (sprite_exists(&mob[i])) {
 				sprite_destroy(&mob[i]);
 			}
 		}
@@ -691,7 +701,7 @@ void restart_level() {
 
 	if (level > 1) {
 		for (i = 0; i < mob_n; i++) {
-			if (&mob[i] != NULL) {
+			if (sprite_exists(&mob[i])) {
 				sprite_destroy(&mob[i]);
 			}
 		}
@@ -715,7 +725,7 @@ void restart_level() {
 		);
 	
 		for (i = 0; i < treasure_n; i++) {
-			if (&treasure[i] != NULL) {
+			if (sprite_exists(&treasure[i])) {
 				sprite_destroy(&treasure[i]);
 				sprite_init(
 					&treasure[i],
@@ -738,7 +748,7 @@ void restart_level() {
 		uint8_t n = 0;
 
 		for (n = 0; n < mob_n; n++) {
-			if (&mob[n] != NULL) {
+			if (sprite_exists(&mob[n])) {
 				sprite_destroy(&mob[n]);
 				sprite_init(
 					&mob[n],
@@ -747,6 +757,8 @@ void restart_level() {
 					5, 6, mob_bitmap
 				);
 				sprite_set_speed(&mob[n], .25, .25);
+			} else {
+				sprite_visible(&mob[n], 0);
 			}
 		}
 
@@ -770,7 +782,7 @@ void next_level() {
 
 	score += 100;
 	level += 1;
-	if (&tower != NULL) {
+	if (sprite_exists(&tower)) {
 		sprite_destroy(&tower);
 	}
 	
@@ -798,10 +810,10 @@ void next_level() {
 
 	for (i = 0; i < mob_n; i++) {
 		uint8_t n = 0;
-		if (rand() % 10 > 5 || i == 0) {
+		if (rand() % 10 > 7 || i == 0) {
 			uint8_t collided = 0;
 			do {
-				if (&mob[i] != NULL) {
+				if (sprite_exists(&mob[i])) {
 					sprite_destroy(&mob[i]);
 				}
 				mob_x[i] = rand() % LCD_X;
@@ -814,7 +826,7 @@ void next_level() {
 				);
 
 				for (n = 0; n < i; n++) {
-					if (&mob[n] != NULL) {
+					if (sprite_exists(&mob[n])) {
 						collided = process_collision(&mob[n], &mob[i]);
 						if (collided) {
 							break;
@@ -826,6 +838,9 @@ void next_level() {
 				process_collision(&mob[i], &door) ||
 				collided
 			);			
+		} else {
+			sprite_destroy(&mob[i]);
+			sprite_visible(&mob[i], 0);
 		}
 	}
 
@@ -844,7 +859,7 @@ void next_level() {
 		uint8_t n = 0;
 		mob_collided = 0;
 		for (n = 0; n < i; n++) {
-			if (&mob[n] != NULL) {
+			if (sprite_exists(&mob[n])) {
 				mob_collided = process_collision(&key, &mob[n]);
 				if (mob_collided) {
 					break;
@@ -857,10 +872,9 @@ void next_level() {
 		mob_collided
 	);
 
-	// TODO
-	if ((rand() % 10) > 1) {
+	if ((rand() % 10) > 7) {
 		do {
-			if (&shield != NULL) {
+			if (sprite_exists(&shield)) {
 				sprite_destroy(&shield);
 			}
 			shield_x = rand() % LCD_X;
@@ -875,7 +889,7 @@ void next_level() {
 			uint8_t n = 0;
 			mob_collided = 0;
 			for (n = 0; n < i; n++) {
-				if (&mob[n] != NULL) {
+				if (sprite_exists(&mob[n])) {
 					mob_collided = process_collision(&shield, &mob[n]);
 					if (mob_collided) {
 						break;
@@ -895,7 +909,7 @@ void next_level() {
 		uint8_t collided = 0;
 		if (rand() % 10 > 5) {
 			do {
-				if (&treasure[i] != NULL) {
+				if (sprite_exists(&treasure[i])) {
 					sprite_destroy(&treasure[i]);
 				}
 				treasure_x[i] = rand() % LCD_X;
@@ -908,7 +922,7 @@ void next_level() {
 				);
 
 				for (n = 0; n < i; n++) {
-					if (&treasure[n] != NULL) {
+					if (sprite_exists(&treasure[n])) {
 						collided = process_collision(&treasure[n], &treasure[i]);
 						if (collided) {
 							break;
@@ -918,7 +932,7 @@ void next_level() {
 				
 				mob_collided = 0;
 				for (n = 0; n < i; n++) {
-					if (&mob[n] != NULL) {
+					if (sprite_exists(&mob[n])) {
 						mob_collided = process_collision(&key, &mob[n]);
 						if (mob_collided) {
 							break;
@@ -956,16 +970,19 @@ void next_level() {
 
 	for (i = 0; i < walls_n; i++) {
 
-		uint8_t t_width = i <= 2 ? 3 : 100 * 0.35;
-		uint8_t t_height = i <= 2 ? 160 * 0.35 : 3;
+		uint8_t t_width = i <= 2 ? 3 : 100 * 0.25;
+		uint8_t t_height = i <= 2 ? 160 * 0.25 : 3;
 		uint8_t t_collided = 0;
 		uint8_t n;
 
 		do {
+			wall_x[i] = rand() % 130 - 35;
+			wall_y[i] = rand() % 140 - 35;
+
 			sprite_init(
 				&wall[i],
-				rand() % 130 + (-35),
-				rand() % 140 + (-35),
+				wall_x[i],
+				wall_y[i],
 				t_width,
 				t_height,
 				i <= 2 ? wall_left_bitmap : wall_top_bitmap
@@ -978,7 +995,7 @@ void next_level() {
 			uint8_t n = 0;
 			uint8_t treasure_collided = 0;
 			for (n = 0; n < i; n++) {
-				if (&treasure[n] != NULL) {
+				if (sprite_exists(&treasure[n])) {
 					treasure_collided = process_collision(&treasure[n], &treasure[i]);
 					if (treasure_collided) {
 						break;
@@ -988,7 +1005,7 @@ void next_level() {
 			
 			mob_collided = 0;
 			for (n = 0; n < i; n++) {
-				if (&mob[n] != NULL) {
+				if (sprite_exists(&mob[n])) {
 					mob_collided = process_collision(&key, &mob[n]);
 					if (mob_collided) {
 						break;
@@ -1016,7 +1033,7 @@ void next_level() {
 
 	uint8_t q = 0;
 	for (q = 0; q < mob_n; q++) {
-		if (&mob[q] != NULL) {
+		if (sprite_exists(&mob[q])) {
 			sprite_set_speed(&mob[q], .25, .25);
 		}
 	}
@@ -1110,7 +1127,7 @@ void game_over_screen() {
 	sprite_destroy(&door);
 	uint8_t q = 0;
 	for (q = 0; q < mob_n; q++) {
-		if (&mob[q] != NULL) {
+		if (sprite_exists(&mob[q])) {
 			sprite_destroy(&mob[q]);
 		}
 	}
@@ -1193,6 +1210,18 @@ void process() {
 	// GUARD: Check if the start button has been pressed when level is 0
 	if ((BIT_IS_SET(PINF, 5) || BIT_IS_SET(PINF, 6)) && level == 0) {
 		level = 1;
+		clear_screen();
+		draw_string(31, 20, "- 3 -", FG_COLOUR);
+		show_screen();
+		_delay_ms(333);
+		clear_screen();
+		draw_string(31, 20, "- 2 -", FG_COLOUR);
+		show_screen();
+		_delay_ms(333);
+		clear_screen();
+		draw_string(31, 20, "- 1 -", FG_COLOUR);
+		show_screen();
+		_delay_ms(333);
 		return;
 	}
 
@@ -1306,7 +1335,7 @@ void process() {
 	process_collision(&hero, &wall_bot);
 
 	// Check if the hero touches the monster
-	if (&shield != NULL) {
+	if (sprite_exists(&shield)) {
 		sprite_draw(&shield);
 
 		if (process_collision(&hero, &shield)) {
@@ -1320,9 +1349,8 @@ void process() {
 			uint8_t collided = 0;
 			uint8_t p = 0;
 			for (p = 0; p < mob_n; p++) {
-				if (&mob[p] != NULL) {
-					collided = process_collision(&hero, &mob[p]);
-					collided = process_collision(&shield, &mob[p]);
+				if (sprite_exists(&mob[p])) {
+					collided = process_collision(&hero, &mob[p]) || process_collision(&shield, &mob[p]);
 				}
 				if (collided) {
 					break;
@@ -1341,7 +1369,7 @@ void process() {
 
 	uint8_t b = 0;
 	for (b = 0; b < mob_n; b++) {
-		if (&mob[b] != NULL) {
+		if (sprite_exists(&mob[b])) {
 			if (process_collision(&hero, &mob[b])) {
 				usb_serial_send("\r\nThe player was killed by the monster");
 				sprite_destroy(&hero);
