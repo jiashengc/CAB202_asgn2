@@ -15,7 +15,7 @@
 #include "usb_serial.h"
 #include "string.h"
 
-#define walls_n 0
+#define walls_n 2
 #define treasure_n 5
 #define mob_n 5
 
@@ -337,9 +337,9 @@ void setup_usb_serial(void) {
 
 	usb_init();
 
-	//while (!usb_serial_available()) {
-		// Block until USB is ready.
-	//}
+	while (!usb_serial_available()) {
+		//Block until USB is ready.
+	}
 
 	message = "Welcome";
 	usb_serial_send(message);
@@ -592,12 +592,10 @@ void sprite_destroy( sprite_id sprite ) {
 	sprite->is_visible = 0;
 	sprite->x = rand() % 500 + 200;
 	sprite->y = rand() % 500 + 200;
-	sprite = NULL;
-	free(sprite);
 }
 
 int sprite_exists(sprite_id sprite) {
-	return sprite != NULL || sprite->is_visible != 0;
+	return sprite != NULL && sprite->is_visible != 0;
 }
 
 int process_collision(sprite_id obj_1, sprite_id obj_2) {
@@ -670,11 +668,11 @@ void restart_level() {
 	}
 
 	if (level == 1) {
-		for (i = 0; i < mob_n; i++) {
-			if (sprite_exists(&mob[i])) {
-				sprite_destroy(&mob[i]);
-			}
-		}
+		// for (i = 0; i < mob_n; i++) {
+		// 	if (sprite_exists(&mob[i])) {
+		// 		sprite_destroy(&mob[i]);
+		// 	}
+		// }
 
 		sprite_destroy(&hero);
 		sprite_destroy(&tower);
@@ -700,11 +698,11 @@ void restart_level() {
 	}
 
 	if (level > 1) {
-		for (i = 0; i < mob_n; i++) {
-			if (sprite_exists(&mob[i])) {
-				sprite_destroy(&mob[i]);
-			}
-		}
+		// for (i = 0; i < mob_n; i++) {
+		// 	if (sprite_exists(&mob[i])) {
+		// 		sprite_destroy(&mob[i]);
+		// 	}
+		// }
 
 		sprite_destroy(&hero);
 		sprite_destroy(&door);
@@ -1083,15 +1081,18 @@ ISR(TIMER0_OVF_vect) {
 
 	if ( interval >= 0.97 ) {
 
-		seconds += 1;
-		if (seconds >= 10) {
-			seconds = 0;
-			tenth_seconds += 1;
+		if (level > 0) {
+			seconds += 1;
+			if (seconds >= 10) {
+				seconds = 0;
+				tenth_seconds += 1;
+			}
+			if (tenth_seconds >= 6) {
+				tenth_seconds = 0;
+				minutes += 1;
+			}	
 		}
-		if (tenth_seconds >= 6) {
-			tenth_seconds = 0;
-			minutes += 1;
-		}	
+		
 
 		o_seconds += 1;
 		if (o_seconds >= 10) {
@@ -1377,6 +1378,19 @@ void process() {
 			}
 		}
 	}
+
+	// for (q = 0; q < walls_n; q++) {
+	// 	sprite_draw(&wall[q]);
+	// 	process_collision(&hero, &wall[q]);
+	// }
+
+	// for (q = 0; q < walls_n; q++) {
+	// 	for (b = 0; b < mob_n; b++) {
+	// 		if (sprite_exists(&mob[b])) {
+	// 			process_collision(&mob[b], &wall[q]);
+	// 		}
+	// 	}
+	// }
 
 	show_screen();
 }
